@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
 import VideoPlayer from './components/VideoPlayer';
 import VideoControls from './components/VideoControls';
 import VideoTimeline from './components/VideoTimeline';
@@ -7,7 +8,7 @@ import VideoUpload from './components/VideoUpload';
 import Header from './components/Header';
 import './App.css';
 
-const ffmpeg = createFFmpeg({ log: true });
+const ffmpeg = new FFmpeg();
 
 function App() {
   const [isFFmpegLoaded, setIsFFmpegLoaded] = useState(false);
@@ -23,6 +24,10 @@ function App() {
   useEffect(() => {
     const loadFFmpeg = async () => {
       try {
+        ffmpeg.on('log', ({ message }) => {
+          console.log(message);
+        });
+        
         await ffmpeg.load();
         setIsFFmpegLoaded(true);
       } catch (error) {
@@ -50,18 +55,18 @@ function App() {
 
     setIsProcessing(true);
     try {
-      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+      await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
 
-      await ffmpeg.run(
+      await ffmpeg.exec([
         '-i', 'input.mp4',
         '-ss', `${trimStart}`,
         '-to', `${trimEnd}`,
         '-c:v', 'copy',
         '-c:a', 'copy',
         'output.mp4'
-      );
+      ]);
 
-      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const data = await ffmpeg.readFile('output.mp4');
       
       const blob = new Blob([data.buffer], { type: 'video/mp4' });
       const url = URL.createObjectURL(blob);
